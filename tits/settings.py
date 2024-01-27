@@ -50,9 +50,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'main',
     'rest_framework',
     'drf_spectacular',
+    'problem',
+    'contest',
+    'user_app',
+    'quantity_mode',
+    'time_mode',
+    'custom_mode',
 ]
 
 MIDDLEWARE = [
@@ -91,7 +96,7 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'TensorITS',
 }
 
-AUTH_USER_MODEL = 'main.CustomUser'
+AUTH_USER_MODEL = 'user_app.CustomUser'
 
 
 WSGI_APPLICATION = 'tits.wsgi.application'
