@@ -3,7 +3,7 @@ from .views import (
     ProblemSetView, HomePageView,
     ProblemDetailView,ProblemSubmissionListView,
     AddDiscussionView,ProblemSubmitView,SubmissionDetailView,
-    DiscussionListView,
+    DiscussionListView, RunProblemView,
     UpvoteDiscussionView, DownvoteDiscussionView,ReplyDiscussionView, EditDiscussionView, DeleteDiscussionView
 )
 urlpatterns = [
@@ -12,6 +12,7 @@ urlpatterns = [
     path('', HomePageView.as_view(), name='home'),
     # Problem Set
     path('api/problem-set/', ProblemSetView.as_view(), name='problem_set'),
+    path('api/run-problem/', RunProblemView.as_view(), name='run_problem'),
 
     # Problem
     path('api/problem/<int:pk>/',ProblemDetailView.as_view(), name='problem_detail'),

@@ -47,7 +47,7 @@ class SubmissionSerializer(serializers.ModelSerializer):
     problem = serializers.SerializerMethodField()
     class Meta:
         model = Submission
-        fields = '__all__'
+        fields = ['id', 'user', 'problem', 'num_test_cases', 'num_test_cases_passed', 'taken_time', 'timestamp', 'code','test_case_verdict']
 
     def get_user(self, obj):
         return {
@@ -60,18 +60,25 @@ class SubmissionSerializer(serializers.ModelSerializer):
         return {
             'id': obj.problem.id
         }
+    
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        prb = Problem.objects.get(id=data['problem']['id'])
+        if not prb.show_code:
+            data.pop('code')
+        return data
 
-class ProblemSubmitSerializer(serializers.ModelSerializer):
+class ProblemSubmitSerializer(serializers.ModelSerializer): #changed
     class Meta:
         model = Submission
-        fields = ['code', 'test_case', 'taken_time', 'verdict']
+        fields = ['code', 'taken_time']
 
-class ProblemSubmissionListSerializer(serializers.ModelSerializer):
+class ProblemSubmissionListSerializer(serializers.ModelSerializer): #changed
     user = serializers.SerializerMethodField()
 
     class Meta:
         model = Submission
-        fields = ['id', 'verdict', 'user']
+        fields = ['id', 'user', 'num_test_cases', 'num_test_cases_passed', 'taken_time', 'timestamp']
 
     def get_user(self, obj):
         return {
@@ -112,3 +119,6 @@ class DiscussionSerializer(serializers.ModelSerializer):
         serializer = DiscussionSerializer(replies, many=True)
         return serializer.data
 
+class RunProblemSerializer(serializers.Serializer):
+    test_cases = serializers.JSONField()
+    code = serializers.CharField()

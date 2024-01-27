@@ -8,6 +8,8 @@ from problem.serializers import ProblemSubmitSerializer, ModeProblemSerializer
 
 from .models import TimeMode, TimeModeSubmission
 from .serializers import TimeModeSerializer, TimeModeCreateSerializer, TimeModeLeaderBoardSerializer
+from utils.code_runner import evaluate_code
+import json
 
 # Create your views here.
 class TimeModeView(generics.RetrieveAPIView):
@@ -105,7 +107,6 @@ class TimeModeSubmitView(APIView):
 
             user = request.user
             code = serializer.validated_data['code']
-            test_case = serializer.validated_data['test_case']
             taken_time = serializer.validated_data['taken_time']
 
             # Get the active Time Mode for the user
@@ -114,29 +115,31 @@ class TimeModeSubmitView(APIView):
             if time_mode:
                 problem = time_mode.current_problem
 
-                # Create a Submission instance
+                problem_dict = ModeProblemSerializer(problem).data
+                result = evaluate_code(code, problem_dict)
+                num_test_cases=result['num_test_cases']
+                num_test_cases_passed=result['num_test_cases_passed']
+
                 submission = Submission.objects.create(
                     user=user,
                     problem=problem,
                     code=code,
-                    test_case=test_case,
-                    taken_time=taken_time,
-                    verdict=serializer.validated_data['verdict'],
-                    submission_no=1
+                    test_case_verdict=result['result'],
+                    num_test_cases=result['num_test_cases'],
+                    num_test_cases_passed=result['num_test_cases_passed'],
+                    taken_time=taken_time
                 )
 
-                if serializer.validated_data['verdict'] == 'ac':
-                    user.xp = user.xp + problem.difficulty*3
-                    user.level = xp_to_level(user.xp)
-                    user.save()
+                accuracy = num_test_cases_passed/num_test_cases
+                user.xp = user.xp + float(problem.difficulty)*0.6 + accuracy*5.0
+                user.level = xp_to_level(user.xp)
+                user.save()
+
+                if accuracy == 1:
                     problem.solve_count += 1
                     problem.try_count += 1
                     problem.save()
                 else:
-                    user.xp = user.xp + problem.difficulty
-                    user.level = xp_to_level(user.xp)
-                    user.save()
-
                     problem.try_count += 1
                     problem.save()
 
@@ -164,15 +167,25 @@ class TimeModeSubmitView(APIView):
                     time_mode.save()
 
                 # Return the submission details
-                return Response({'detail': 'Problem submitted.'}, status=status.HTTP_201_CREATED)
+                return Response(json.dumps(result), status=status.HTTP_201_CREATED)
 
-            return Response({'detail': 'QuantityMode not found.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'TimeMode not found.'}, status=status.HTTP_404_NOT_FOUND)
         else:
             serializer = ProblemSubmitSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            verdict = serializer.validated_data['verdict']
+
+            problem = Problem.objects.get(pk=request.session['time_mode_pid'])
+            code = request.data.get('code')
+
+            problem_dict = ModeProblemSerializer(problem).data
+            result = evaluate_code(code, problem_dict)
+            num_test_cases=result['num_test_cases']
+            num_test_cases_passed=result['num_test_cases_passed']
+
+            accuracy = num_test_cases_passed/num_test_cases
+
             problems_solved = request.session.get('problems_solved', {})
-            problems_solved[request.session['time_mode_pid']] = verdict 
+            problems_solved[request.session['time_mode_pid']] = accuracy 
             request.session['problems_solved'] = problems_solved
             print(request.session['problems_solved'])
 
@@ -190,7 +203,7 @@ class TimeModeSubmitView(APIView):
             else:
                 generated_problem = generate_problem(int(difficulty*0.5))
                 request.session['time_mode_pid'] = generated_problem.id
-            return Response({'detail': 'Problem submitted.'}, status=status.HTTP_201_CREATED)
+            return Response(json.dumps(result), status=status.HTTP_201_CREATED)
 
 # Complete Time Mode View:
 class TimeModeCompleteView(APIView):
