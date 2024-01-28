@@ -7,7 +7,7 @@ from math import log2
 from problem.serializers import ProblemSubmitSerializer, ModeProblemSerializer
 
 from .models import TimeMode, TimeModeSubmission
-from .serializers import TimeModeSerializer, TimeModeCreateSerializer, TimeModeLeaderBoardSerializer
+from .serializers import TimeModeSerializer, TimeModeCreateSerializer, TimeModeLeaderboardSerializer
 from utils.code_runner import evaluate_code
 import json
 
@@ -221,13 +221,21 @@ class TimeModeCompleteView(APIView):
             return Response({'detail': 'TimeMode has been completed.'}, status=status.HTTP_200_OK)
         
 class TimeModeLeaderBoardView(APIView):
-    def get(self, request, *args, **kwargs):
-        if request.user.is_authenticated:
-            time_mode = TimeMode.objects.filter(user=request.user, is_finished=True).first()
-            if time_mode:
-                time_mode_submissions = TimeModeSubmission.objects.filter(time_mode=time_mode).order_by('submission__taken_time')
-                serializer = TimeModeLeaderBoardSerializer(time_mode_submissions, many=True)
-                return Response(serializer.data, status=status.HTTP_200_OK)
-            return Response({'detail': 'TimeMode not found.'}, status=status.HTTP_404_NOT_FOUND)
-        else:
-            return Response({'detail': 'TimeMode not found.'}, status=status.HTTP_404_NOT_FOUND)
+    serializer_class = TimeModeLeaderboardSerializer
+
+    def get(self, request, time, *args, **kwargs):
+        # Validate time_unit
+        if time not in ['600', '1800', '3600']:
+            return Response({'detail': 'Invalid time unit.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Filter completed modes for the specified time unit and order by -current_problem_num and timestamp
+        completed_modes = TimeMode.objects.filter(
+            time=time,current_problem_num__gt=1
+        ).order_by('-current_problem_num', 'timestamp')
+
+        # Create the leaderboard
+        leaderboard = [
+            TimeModeLeaderboardSerializer(instance).data for instance in completed_modes
+        ]
+
+        return Response(leaderboard, status=status.HTTP_200_OK)

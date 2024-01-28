@@ -4,7 +4,9 @@ from rest_framework import status,generics
 from utils.utils import xp_to_level
 from rest_framework.permissions import IsAuthenticated
 from .models import Problem, Submission, Discussion, DiscussionVote
-from .serializers import ProblemSetSerializer, ProblemDetailsSerializer, ProblemSubmitSerializer, ProblemSubmissionListSerializer, SubmissionSerializer, DiscussionSerializer, AddDiscussionSerializer, DiscussionVoteSerializer
+from .serializers import ProblemSetSerializer, ProblemDetailsSerializer, ProblemSubmitSerializer, ProblemSubmissionListSerializer, SubmissionSerializer, DiscussionSerializer, AddDiscussionSerializer, DiscussionVoteSerializer, ModeProblemSerializer, RunProblemSerializer
+from utils.code_runner import evaluate_code
+import json
 
 # Create your views here.
 class HomePageView(APIView):
@@ -15,6 +17,16 @@ class HomePageView(APIView):
 class ProblemSetView(generics.ListAPIView):
     queryset = Problem.objects.all()
     serializer_class = ProblemSetSerializer
+
+class RunProblemView(APIView):
+    serializer_class = RunProblemSerializer
+    def post(self, request):
+        print(request.data)
+        test_cases = request.data.get('test_cases')
+        code = request.data.get('code')
+        result = evaluate_code(str(code), request.data)
+        return Response(result, status=status.HTTP_200_OK)
+
 
 # Problem Detail View:
 class ProblemDetailView(generics.RetrieveAPIView):
@@ -27,7 +39,7 @@ class ProblemDetailView(generics.RetrieveAPIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 # Problem Submission View:
-class ProblemSubmitView(generics.CreateAPIView):
+class ProblemSubmitView(generics.CreateAPIView): #changed
     queryset = Submission.objects.all()
     serializer_class = ProblemSubmitSerializer
 
@@ -36,9 +48,7 @@ class ProblemSubmitView(generics.CreateAPIView):
             user = request.user
             problem = Problem.objects.get(pk=pk)
             code = request.data.get('code')
-            test_case = request.data.get('test_case')
             taken_time = request.data.get('taken_time')
-            verdict = request.data.get('verdict')
 
             # Check if a submission for the user and problem exists
             existing_submissions = Submission.objects.filter(
@@ -51,37 +61,54 @@ class ProblemSubmitView(generics.CreateAPIView):
             else:
                 submission_no = 1
 
+            problem_dict = ModeProblemSerializer(problem).data
+            result = evaluate_code(code, problem_dict)
+            num_test_cases=result['num_test_cases']
+            num_test_cases_passed=result['num_test_cases_passed']
+
             submission = Submission.objects.create(
                 user=user,
                 problem=problem,
                 code=code,
-                test_case=test_case,
+                test_case_verdict=result['result'],
+                num_test_cases=result['num_test_cases'],
+                num_test_cases_passed=result['num_test_cases_passed'],
                 taken_time=taken_time,
-                verdict=verdict,
                 submission_no=submission_no
             )
 
-            if verdict == 'ac':
-                user.xp = user.xp + problem.difficulty*2
-                user.level = xp_to_level(user.xp)
-                user.save()
+            accuracy = num_test_cases_passed/num_test_cases
+            user.xp = user.xp + float(problem.difficulty)*0.6 + accuracy*5.0
+            user.level = xp_to_level(user.xp)
+            user.save()
+
+            if accuracy == 1:
                 problem.solve_count += 1
                 problem.try_count += 1
                 problem.save()
             else:
-                user.xp = user.xp + problem.difficulty*0.6
-                user.level = xp_to_level(user.xp)
-                user.save()
                 problem.try_count += 1
                 problem.save()
 
-            return Response(status=status.HTTP_201_CREATED)
+            return Response(json.dumps(result),status=status.HTTP_201_CREATED)
         else:
             if not request.session.get('problems_solved'):
                 request.session['problems_solved'] = {}
+
+            problem = Problem.objects.get(pk=pk)
+            code = request.data.get('code')
+
+            problem_dict = ModeProblemSerializer(problem).data
+            result = evaluate_code(code, problem_dict)
+            num_test_cases=result['num_test_cases']
+            num_test_cases_passed=result['num_test_cases_passed']
+
+            accuracy = num_test_cases_passed/num_test_cases
+
             problems_solved = request.session.get('problems_solved', {})
-            problems_solved[str(pk)] = request.data.get('verdict')
-            return Response({'msg':'Problem Submitted'},status=status.HTTP_201_CREATED)
+            problems_solved[str(pk)] = accuracy
+            request.session['problems_solved'] = problems_solved
+            return Response(json.dumps(result),status=status.HTTP_201_CREATED)
 
 # Problem Submission List View:
 class ProblemSubmissionListView(generics.ListAPIView):

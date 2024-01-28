@@ -4,10 +4,13 @@ from rest_framework import status,generics
 from problem.models import Submission, Problem
 from utils.utils import generate_problem, xp_to_level
 from math import log2
+from django.db import models
 from problem.serializers import ProblemSubmitSerializer, ModeProblemSerializer
 
-from .models import QuantityMode, QuantityModeSubmission
-from .serializers import QuantityModeSerializer, QuantityModeCreateSerializer, QuantityModeLeaderBoardSerializer
+from .models import QuantityMode
+from .serializers import QuantityModeSerializer, QuantityModeCreateSerializer, QuantityModeLeaderboardSerializer
+from utils.code_runner import evaluate_code
+import json
 
 # Create your views here.
 class QuantityModeView(generics.RetrieveAPIView):
@@ -96,7 +99,6 @@ class QuantityModeSubmitView(APIView):
 
             user = request.user
             code = serializer.validated_data['code']
-            test_case = serializer.validated_data['test_case']
             taken_time = serializer.validated_data['taken_time']
 
             # Get the active QuantityMode for the user
@@ -106,35 +108,31 @@ class QuantityModeSubmitView(APIView):
                 # Check if the current problem number is within the total number of problems
                 problem = quantity_mode.current_problem
 
-                # Create a Submission instance
+                problem_dict = ModeProblemSerializer(problem).data
+                result = evaluate_code(code, problem_dict)
+                num_test_cases=result['num_test_cases']
+                num_test_cases_passed=result['num_test_cases_passed']
+
                 submission = Submission.objects.create(
                     user=user,
                     problem=problem,
                     code=code,
-                    test_case=test_case,
-                    taken_time=taken_time,
-                    verdict=serializer.validated_data['verdict'],
-                    submission_no=1
+                    test_case_verdict=result['result'],
+                    num_test_cases=result['num_test_cases'],
+                    num_test_cases_passed=result['num_test_cases_passed'],
+                    taken_time=taken_time
                 )
 
-                QuantityModeSubmission.objects.create(
-                    submission=submission,
-                    quantity_mode=quantity_mode,
-                    problem_number=quantity_mode.current_problem_num
-                )
+                accuracy = num_test_cases_passed/num_test_cases
+                user.xp = user.xp + float(problem.difficulty)*0.6 + accuracy*5.0
+                user.level = xp_to_level(user.xp)
+                user.save()
 
-                if serializer.validated_data['verdict'] == 'ac':
-                    user.xp = user.xp + problem.difficulty*3
-                    user.level = xp_to_level(user.xp)
-                    user.save()
+                if accuracy == 1:
                     problem.solve_count += 1
                     problem.try_count += 1
                     problem.save()
                 else:
-                    user.xp = user.xp + problem.difficulty
-                    user.level = xp_to_level(user.xp)
-                    user.save()
-
                     problem.try_count += 1
                     problem.save()
 
@@ -153,7 +151,7 @@ class QuantityModeSubmitView(APIView):
                         quantity_mode.save()
 
                     # Return the submission details
-                    return Response({'detail': 'Problem submitted.'}, status=status.HTTP_201_CREATED)
+                    return Response(json.dumps(result), status=status.HTTP_201_CREATED)
                 else:
                     quantity_mode.is_finished = True
                     quantity_mode.save()
@@ -162,17 +160,27 @@ class QuantityModeSubmitView(APIView):
                     user.level = xp_to_level(user.xp)
                     user.save()
 
-                    return Response({'detail': 'QuantityMode has been completed.'}, status=status.HTTP_201_CREATED)
+                    return Response(json.dumps(result), status=status.HTTP_201_CREATED)
 
             return Response({'detail': 'QuantityMode not found.'}, status=status.HTTP_404_NOT_FOUND)
         else:
             serializer = ProblemSubmitSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            verdict = serializer.validated_data['verdict']
+
+            problem = Problem.objects.get(pk=request.session['quantity_mode_pid'])
+            code = request.data.get('code')
+
+            problem_dict = ModeProblemSerializer(problem).data
+            result = evaluate_code(code, problem_dict)
+            num_test_cases=result['num_test_cases']
+            num_test_cases_passed=result['num_test_cases_passed']
+
+            accuracy = num_test_cases_passed/num_test_cases
+
             problems_solved = request.session.get('problems_solved', {})
-            problems_solved[request.session['quantity_mode_pid']] = verdict 
+            problems_solved[request.session['quantity_mode_pid']] = accuracy 
             request.session['problems_solved'] = problems_solved
-            print(request.session['problems_solved'])
+            
 
             request.session['quantity_mode_current_problem_num'] += 1
             if request.session['quantity_mode_current_problem_num'] <= request.session['quantity_mode_number_of_problems']:
@@ -180,7 +188,7 @@ class QuantityModeSubmitView(APIView):
                 existing_problem = Problem.objects.filter(difficulty__range=(difficulty - 0.1, difficulty + 0.1)).exclude(pk__in=list(map(int, request.session.get('problems_solved', {}).keys()))).first()
                 if existing_problem:
                     request.session['quantity_mode_pid'] = existing_problem.id
-                return Response({'detail': 'Problem submitted.'}, status=status.HTTP_201_CREATED)
+                return Response(json.dumps(result), status=status.HTTP_201_CREATED)
             else:
                 request.session['quantity_mode'] = 'off'
                 return Response({'detail': 'QuantityMode has been completed.'}, status=status.HTTP_201_CREATED)
@@ -200,13 +208,20 @@ class QuantityModeForceEndView(APIView):
             return Response({'detail': 'QuantityMode has been completed.'}, status=status.HTTP_200_OK)
         
 class QuantityModeLeaderBoardView(APIView):
+    serializer_class = QuantityModeLeaderboardSerializer
     def get(self, request, *args, **kwargs):
-        if request.user.is_authenticated:
-            quantity_mode = QuantityMode.objects.filter(user=request.user, is_finished=True).first()
-            if quantity_mode:
-                quantity_mode_submissions = QuantityModeSubmission.objects.filter(quantity_mode=quantity_mode).order_by('submission__taken_time')
-                serializer = QuantityModeLeaderBoardSerializer(quantity_mode_submissions, many=True)
-                return Response(serializer.data, status=status.HTTP_200_OK)
-            return Response({'message': 'QuantityMode not found.'}, status=status.HTTP_404_NOT_FOUND)
-        else:
-            return Response({'message': 'QuantityMode not found.'}, status=status.HTTP_404_NOT_FOUND)
+        # Filter completed modes and order by the number_of_problems in descending order
+        completed_modes = QuantityMode.objects.filter(current_problem_num=models.F('number_of_problems') + 1).order_by('-number_of_problems', 'timestamp')
+
+        # Keep track of the best mode for each user
+        best_modes = {}
+        for mode in completed_modes:
+            if mode.user.id not in best_modes or mode.number_of_problems > best_modes[mode.user.id].number_of_problems:
+                best_modes[mode.user.id] = mode
+
+        # Create a sorted leaderboard
+        leaderboard = [
+            QuantityModeLeaderboardSerializer(instance).data for id, instance in best_modes.items()
+        ]
+
+        return Response(leaderboard, status=status.HTTP_200_OK)

@@ -9,6 +9,8 @@ from utils.utils import generate_problem, generate_custom_problem, ci, cm, xp_to
 
 from problem.serializers import ProblemSubmitSerializer, ModeProblemSerializer
 from .serializers import CustomModeSettingSerializer, CustomModeLeaderboardSerializer
+from utils.code_runner import evaluate_code
+import json
 # Create your views here.
 class CustomModeView(APIView):
     serializer_class = ModeProblemSerializer
@@ -68,6 +70,8 @@ class CustomModeView(APIView):
                 request.session['chosen_manipulator'] = cm
                 request.session['depth'] = 2
 
+                print(request.session)
+
                 used_manipulator,test_cases = generate_custom_problem(2)
                 # serializer = ModeProblemSerializer(data={'test_cases':test_cases,'used_manipulator':used_manipulator})
                 # serializer.is_valid(raise_exception=True)
@@ -85,7 +89,6 @@ class CustomModeSubmitView(APIView):
 
             user = request.user
             code = serializer.validated_data['code']
-            test_case = serializer.validated_data['test_case']
             taken_time = serializer.validated_data['taken_time']
 
             # Get the active Custom Mode for the user
@@ -94,29 +97,31 @@ class CustomModeSubmitView(APIView):
             if custom_mode:
                 problem = custom_mode.current_problem
 
-                # Create a Submission instance
+                problem_dict = ModeProblemSerializer(problem).data
+                result = evaluate_code(code, problem_dict)
+                num_test_cases=result['num_test_cases']
+                num_test_cases_passed=result['num_test_cases_passed']
+
                 submission = Submission.objects.create(
                     user=user,
                     problem=problem,
                     code=code,
-                    test_case=test_case,
-                    taken_time=taken_time,
-                    verdict=serializer.validated_data['verdict'],
-                    submission_no=1
+                    test_case_verdict=result['result'],
+                    num_test_cases=result['num_test_cases'],
+                    num_test_cases_passed=result['num_test_cases_passed'],
+                    taken_time=taken_time
                 )
 
-                if serializer.validated_data['verdict'] == 'ac':
-                    user.xp = user.xp + problem.difficulty*3
-                    user.level = xp_to_level(user.xp)
-                    user.save()
+                accuracy = num_test_cases_passed/num_test_cases
+                user.xp = user.xp + float(problem.difficulty)*0.6 + accuracy*5.0
+                user.level = xp_to_level(user.xp)
+                user.save()
+
+                if accuracy == 1:
                     problem.solve_count += 1
                     problem.try_count += 1
                     problem.save()
                 else:
-                    user.xp = user.xp + problem.difficulty
-                    user.level = xp_to_level(user.xp)
-                    user.save()
-
                     problem.try_count += 1
                     problem.save()
 
@@ -127,11 +132,12 @@ class CustomModeSubmitView(APIView):
                 custom_mode.current_problem = None
                 custom_mode.save()
                 # Return the submission details
-                return Response({'detail': 'Problem submitted.'}, status=status.HTTP_201_CREATED)
+                return Response(json.dumps(result), status=status.HTTP_201_CREATED)
 
             return Response({'detail': 'CustomMode not found.'}, status=status.HTTP_404_NOT_FOUND)
         else:
-            return Response({'detail': 'CustomMode submitted but not saved.'}, status=status.HTTP_201_CREATED)
+            #have to run code
+            return Response({'detail': 'Submission is not allowed for anonymous user.'}, status=status.HTTP_201_CREATED)
 
 # Custom Mode Setting View:
 class CustomModeSettingView(APIView):
@@ -208,10 +214,10 @@ class CustomModeSettingView(APIView):
         else:
             if request.session.get('custom_mode')=='on':
                 depth = request.session.get('depth')
-                initiator_dict = {item: False for item in ci} ##problem-->
+                initiator_dict = {item: False for item in ci} 
                 manipulator_dict = {item: False for item in cm}
                 initiator_dict.update({item: True for item in request.session['chosen_initiator']})
-                manipulator_dict.update({item: False for item in request.session['chosen_manipulator']})
+                manipulator_dict.update({item: True for item in request.session['chosen_manipulator']})
                 serializer = CustomModeSettingSerializer(data={'depth': depth, 'initiator': initiator_dict, 'manipulator': manipulator_dict})
                 serializer.is_valid(raise_exception=True)
                 return Response(serializer.validated_data, status=status.HTTP_200_OK)

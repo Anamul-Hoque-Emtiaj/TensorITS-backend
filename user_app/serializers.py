@@ -58,7 +58,7 @@ class UserSubmissionListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Submission
-        fields = ['id', 'verdict', 'user', 'problem']
+        fields = ['id', 'problem', 'num_test_cases', 'num_test_cases_passed', 'taken_time', 'timestamp']
 
     def get_problem(self, obj):
         return {

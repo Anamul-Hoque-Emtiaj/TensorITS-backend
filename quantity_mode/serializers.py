@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import  QuantityMode, QuantityModeSubmission
+from .models import  QuantityMode
+from user_app.models import CustomUser
 from problem.serializers import ModeProblemSerializer
 
 class QuantityModeSerializer(serializers.ModelSerializer):
@@ -12,7 +13,16 @@ class QuantityModeCreateSerializer(serializers.Serializer):
     number_of_problems = serializers.IntegerField()
 
 # QuantityModeSubmission Serializer
-class QuantityModeLeaderBoardSerializer(serializers.ModelSerializer):
+class QuantityModeLeaderboardSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    number_of_problems = serializers.IntegerField()
+
     class Meta:
-        model = QuantityModeSubmission
-        fields = '__all__'
+        model = QuantityMode
+        fields = ['user', 'number_of_problems', 'timestamp']
+
+    def get_user(self, instance):
+        return {
+            'id': instance.user.id,
+            'username': instance.user.username,
+        }

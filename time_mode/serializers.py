@@ -18,7 +18,14 @@ class TimeModeCreateSerializer(serializers.ModelSerializer):
         fields = ['time']
 
 # TimeModeSubmission Serializer
-class TimeModeLeaderBoardSerializer(serializers.ModelSerializer):
+class TimeModeLeaderboardSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
     class Meta:
-        model = TimeModeSubmission
-        fields = '__all__'
+        model = TimeMode
+        fields = ['user', 'current_problem_num', 'timestamp']
+        
+    def get_user(self, instance):
+        return {
+            'id': instance.user.id,
+            'username': instance.user.username,
+        }
