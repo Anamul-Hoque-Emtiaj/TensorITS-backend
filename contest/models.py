@@ -8,8 +8,17 @@ class Contest(models.Model):
     title = models.CharField(max_length=15, default=timezone.now().strftime("%Y-%m-%d"))
     start_time = models.DateTimeField(default=timezone.now)
     end_time = models.DateTimeField(default=(timezone.now() + timezone.timedelta(hours=24)))
+    is_user_added = models.BooleanField(default=False)
     def __str__(self):
         return self.title
+
+class UserContest(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    contest = models.ForeignKey(Contest, on_delete=models.CASCADE)
+    c_id = models.CharField(max_length=50, unique=True, null=True, blank=True)
+    password = models.CharField(max_length=15, null=True, blank=True)
+    num_random_problem = models.IntegerField(default=0)
+
 
 class ContestProblem(models.Model):
     contest = models.ForeignKey(Contest, on_delete=models.CASCADE)

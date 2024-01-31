@@ -8,11 +8,12 @@ from firebase_admin import  auth
 from django.contrib.auth import login, logout
 from django.contrib.auth.hashers import check_password
 from .models import  CustomUser, Achievement, UserAchievement
-from problem.models import Submission, UserProblem
+from problem.models import Submission, UserProblem, Problem, TestCase
 from contest.models import ContestUser, Contest
 from quantity_mode.models import QuantityModeSubmission
 from time_mode.models import TimeModeSubmission
 from custom_mode.models import CustomModeSubmission
+import json
 
 
 
@@ -80,7 +81,8 @@ class SignInWithEmailPassView(generics.GenericAPIView):
                 user.xp = user.xp + 10
                 user.level = xp_to_level(user.xp)
                 user.save()
-                return Response({'user': serializer.data}, status=status.HTTP_200_OK)
+                id = user.id
+                return Response({'user': serializer.data,'id':id}, status=status.HTTP_200_OK)
             else:
                 return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -104,8 +106,8 @@ class AchievementListView(APIView):
 # User Detail View:
 class UserDetailView(APIView):
     serializer_class = UserSerializer
-    def get(self, request, user_id):
-        user = CustomUser.objects.get(id=user_id)
+    def get(self, request, pk):
+        user = CustomUser.objects.get(id=pk)
         serializer = UserSerializer(user)
         return Response(serializer.data)
 
@@ -191,6 +193,20 @@ class UserAddProblemView(APIView):
         serializer.is_valid(raise_exception=True)
 
         # Create the Problem instance and associated objects
-        problem = serializer.save()
+        validated_data = serializer.validated_data
+        used_manipulator_data = validated_data.pop('used_manipulator')
+        true_manipulator_items = [key for key, value in used_manipulator_data.items() if value]
+        print(validated_data)
+        print(true_manipulator_items )
+        test_cases_data = validated_data.pop('testcase_set',{})
+        print(test_cases_data)
+        # Create ManipulatorChoice instance
+        used_manipulator_instance = json.dumps(true_manipulator_items)
+        # Create Problem instance
+        problem = Problem.objects.create(is_user_added=True,used_manipulator=used_manipulator_instance, **validated_data)
+
+        # Create TestCase instances
+        for test_case_data in test_cases_data:
+            TestCase.objects.create(problem=problem, **test_case_data)
 
         return Response({'message': f'Problem "{problem.title}" added successfully.'}, status=status.HTTP_201_CREATED)

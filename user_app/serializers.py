@@ -86,27 +86,14 @@ class userProblemSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class UserAddProblemSerializer(serializers.ModelSerializer):
-    used_manipulator = ManipulatorChoiceSerializer()
+    used_manipulator = ManipulatorChoiceSerializer(required=False, default={})
     test_cases = TestCaseSerializer(many=True, source='testcase_set')
+    title = serializers.CharField(max_length=100, default="Untitled Problem")
+    description = serializers.CharField(max_length=1000, default="No description")
+    depth = serializers.IntegerField(default=-1)
+    solution = serializers.CharField(max_length=1000, default="No solution")
+    editorial_image = serializers.ImageField(required=False, default=None)
 
     class Meta:
         model = Problem
         fields = ['title', 'description', 'depth', 'used_manipulator', 'test_cases', 'solution', 'editorial_image']
-
-    def create(self, validated_data):
-        used_manipulator_data = validated_data.pop('used_manipulator')
-        true_manipulator_items = [key for key, value in used_manipulator_data.items() if value]
-        print(validated_data)
-        print(true_manipulator_items )
-        test_cases_data = validated_data.pop('testcase_set',{})
-        print(test_cases_data)
-        # Create ManipulatorChoice instance
-        used_manipulator_instance = json.dumps(true_manipulator_items)
-        # Create Problem instance
-        problem = Problem.objects.create(is_user_added=True,used_manipulator=used_manipulator_instance, **validated_data)
-
-        # Create TestCase instances
-        for test_case_data in test_cases_data:
-            TestCase.objects.create(problem=problem, **test_case_data)
-
-        return problem
