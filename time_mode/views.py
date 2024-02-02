@@ -23,14 +23,17 @@ class TimeModeView(generics.RetrieveAPIView):
             except TimeMode.DoesNotExist:
                 return Response({'message': 'Time mode not found'}, status=status.HTTP_404_NOT_FOUND)
         else:
+            print("TimeModeView start: ",request.session.get('time_mode'))
             if request.session.get('time_mode')=='on':
                 pid = request.session.get('time_mode_pid')
                 current_problem_num = request.session.get('time_mode_current_problem_num')
                 time = request.session.get('time_mode_time')
                 problem = Problem.objects.get(pk=pid)
                 serializer = ModeProblemSerializer(problem)
+                print("TimeModeView end: ",request.session.get('time_mode'))
                 return Response({'current_problem':serializer.data,'current_problem_num':current_problem_num,'time':time}, status=status.HTTP_200_OK)
             else:
+                print("TimeModeView end: ",request.session.get('time_mode'))
                 return Response({'message': 'Time mode not found'}, status=status.HTTP_404_NOT_FOUND)
 
 class TimeModeCreateView(generics.CreateAPIView):
@@ -94,6 +97,9 @@ class TimeModeCreateView(generics.CreateAPIView):
             else:
                 generated_problem = generate_problem(int(difficulty*0.5))
                 request.session['time_mode_pid'] = generated_problem.id
+
+            print("TimeModeCreate end: ",request.session.get('time_mode'))
+
             return Response({'message': 'TimeMode created successfully.'})
 
 # Submit Time Mode View:
