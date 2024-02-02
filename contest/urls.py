@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     ContestProblemSubmissionView, CreateContestView, AddProblemToContestView, AddUserToContestView,
-    ContestView, ContestProblemListView, ContestRankListView, ContestListView
+    ContestView, ContestProblemListView, ContestRankListView, ContestListView,SearchContestView
 )
 urlpatterns = [
     # Contest
@@ -15,6 +15,7 @@ urlpatterns = [
     path('api/create-contest/', CreateContestView.as_view(), name='create_contest'),
     path('api/contest/<int:pk>/add-problem/', AddProblemToContestView.as_view(), name='add_problem_to_contest'),
     path('api/contest/<int:pk>/add-user/', AddUserToContestView.as_view(), name='add_user_to_contest'),
+    path('api/search-contest/<str:cid>/', SearchContestView.as_view(), name='contest_search'),
 
 
 ]
