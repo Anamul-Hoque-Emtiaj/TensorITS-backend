@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import generics,status
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
-from problem.serializers import ProblemSubmitSerializer, ModeProblemSerializer
+from problem.serializers import ProblemSubmitSerializer, ModeProblemSerializer, ProblemDetailsSerializer
 import json
 from math import log2
 from .serializers import (
@@ -110,6 +110,21 @@ class ContestListView(generics.ListAPIView):
             })
         return data
 
+# Contest Problem View:
+class ContestProblemView(APIView):
+    serializer_class = ProblemDetailsSerializer
+    
+    def get(self, request, cid, pid):
+        problem = ContestProblem.objects.filter(contest__id=cid, problem__id=pid).first()
+        if problem == None:
+            return Response({"message": "Contest problem does not exist."}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            problem = problem.problem
+        serializer = ProblemDetailsSerializer(problem)
+        if ContestUser.objects.filter(user=request.user, contest__id=cid).count() == 0:
+            return Response({"message": "You are not a participant of this contest."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 class ContestProblemSubmissionView(generics.CreateAPIView):
     serializer_class = ProblemSubmitSerializer
     permission_classes = [IsAuthenticated]
@@ -144,6 +159,8 @@ class ContestProblemSubmissionView(generics.CreateAPIView):
 
         problem_dict = ModeProblemSerializer(problem).data
         result = evaluate_code(code, problem_dict)
+        if result['status'] == 'error':
+            return Response(json.dumps(result),status=status.HTTP_400_BAD_REQUEST)
         num_test_cases=result['num_test_cases']
         num_test_cases_passed=result['num_test_cases_passed']
 
@@ -407,8 +424,8 @@ class AddUserToContestView(APIView):
         return Response({"message": "User added to contest successfully."}, status=status.HTTP_201_CREATED)
     
 class SearchContestView(APIView):
-    def get(self, request, cid):
-        c_id = cid
+    def get(self, request):
+        c_id = request.query_params.get('cid')
         if c_id == None:
             return Response({"message": "Search keyword required."}, status=status.HTTP_400_BAD_REQUEST)
         contest = UserContest.objects.filter(c_id=c_id).first()

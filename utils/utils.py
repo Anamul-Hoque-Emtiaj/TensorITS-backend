@@ -50,7 +50,8 @@ def generate_problem(depth,chosen_initiator=ci,chosen_manipulator=cm):
             depth=depth,
             difficulty=difficulty,
             shape=json.dumps(generated_problem['shape']),
-            solution = generated_problem['manipulation_code']
+            solution = generated_problem['manipulation_code'],
+            show_code = True
         )
 
         for j in range(args['how_many']):

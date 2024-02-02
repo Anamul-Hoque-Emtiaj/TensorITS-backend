@@ -3,10 +3,16 @@ from rest_framework.response import Response
 from rest_framework import status,generics
 from utils.utils import xp_to_level
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.pagination import PageNumberPagination
 from .models import Problem, Submission, Discussion, DiscussionVote
 from .serializers import ProblemSetSerializer, ProblemDetailsSerializer, ProblemSubmitSerializer, ProblemSubmissionListSerializer, SubmissionSerializer, DiscussionSerializer, AddDiscussionSerializer, DiscussionVoteSerializer, ModeProblemSerializer, RunProblemSerializer
 from utils.code_runner import evaluate_code
 import json
+
+class ProblemSetPagination(PageNumberPagination):
+    page_size = 100
+    page_size_query_param = 'page_size'
+    max_page_size = 1000
 
 # Create your views here.
 class HomePageView(APIView):
@@ -15,8 +21,9 @@ class HomePageView(APIView):
     
 # Problem Set View:
 class ProblemSetView(generics.ListAPIView):
-    queryset = Problem.objects.all()
+    queryset = Problem.objects.filter(show_code=True).order_by('-addedAt')
     serializer_class = ProblemSetSerializer
+    pagination_class = ProblemSetPagination
 
 class RunProblemView(APIView):
     serializer_class = RunProblemSerializer
@@ -30,7 +37,7 @@ class RunProblemView(APIView):
 
 # Problem Detail View:
 class ProblemDetailView(generics.RetrieveAPIView):
-    queryset = Problem.objects.all()
+    queryset = Problem.objects.filter(show_code=True)
     serializer_class = ProblemDetailsSerializer
 
     def retrieve(self, request, *args, **kwargs):
@@ -39,17 +46,40 @@ class ProblemDetailView(generics.RetrieveAPIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 # Problem Submission View:
-class ProblemSubmitView(generics.CreateAPIView): #changed
+class ProblemSubmitView(generics.CreateAPIView): 
     queryset = Submission.objects.all()
     serializer_class = ProblemSubmitSerializer
 
     def create(self, request, pk, *args, **kwargs):
+
+        problem = Problem.objects.get(pk=pk)
+        if problem == None:
+            return Response({'detail': 'Problem not found.'}, status=status.HTTP_404_NOT_FOUND)
+        if problem.show_code == False:
+            return Response({'detail': 'You are not allowed to submit.'}, status=status.HTTP_403_FORBIDDEN)
+        code = request.data.get('code')
+        taken_time = request.data.get('taken_time')
+
+        problem_dict = ModeProblemSerializer(problem).data
+        result = evaluate_code(code, problem_dict)
+
+        if result['status'] == 'error':
+            return Response(json.dumps(result),status=status.HTTP_400_BAD_REQUEST)
+        
+        num_test_cases=result['num_test_cases']
+        num_test_cases_passed=result['num_test_cases_passed']
+        accuracy = num_test_cases_passed/num_test_cases
+
+        if accuracy == 1:
+            problem.solve_count += 1
+            problem.try_count += 1
+            problem.save()
+        else:
+            problem.try_count += 1
+            problem.save()
+
         if request.user.is_authenticated:
             user = request.user
-            problem = Problem.objects.get(pk=pk)
-            code = request.data.get('code')
-            taken_time = request.data.get('taken_time')
-
             # Check if a submission for the user and problem exists
             existing_submissions = Submission.objects.filter(
                 user=user,
@@ -60,11 +90,6 @@ class ProblemSubmitView(generics.CreateAPIView): #changed
                 submission_no = existing_submissions.first().submission_no + 1
             else:
                 submission_no = 1
-
-            problem_dict = ModeProblemSerializer(problem).data
-            result = evaluate_code(code, problem_dict)
-            num_test_cases=result['num_test_cases']
-            num_test_cases_passed=result['num_test_cases_passed']
 
             submission = Submission.objects.create(
                 user=user,
@@ -77,33 +102,14 @@ class ProblemSubmitView(generics.CreateAPIView): #changed
                 submission_no=submission_no
             )
 
-            accuracy = num_test_cases_passed/num_test_cases
             user.xp = user.xp + float(problem.difficulty)*0.6 + accuracy*5.0
             user.level = xp_to_level(user.xp)
             user.save()
-
-            if accuracy == 1:
-                problem.solve_count += 1
-                problem.try_count += 1
-                problem.save()
-            else:
-                problem.try_count += 1
-                problem.save()
 
             return Response(json.dumps(result),status=status.HTTP_201_CREATED)
         else:
             if not request.session.get('problems_solved'):
                 request.session['problems_solved'] = {}
-
-            problem = Problem.objects.get(pk=pk)
-            code = request.data.get('code')
-
-            problem_dict = ModeProblemSerializer(problem).data
-            result = evaluate_code(code, problem_dict)
-            num_test_cases=result['num_test_cases']
-            num_test_cases_passed=result['num_test_cases_passed']
-
-            accuracy = num_test_cases_passed/num_test_cases
 
             problems_solved = request.session.get('problems_solved', {})
             problems_solved[str(pk)] = accuracy
@@ -112,16 +118,26 @@ class ProblemSubmitView(generics.CreateAPIView): #changed
 
 # Problem Submission List View:
 class ProblemSubmissionListView(generics.ListAPIView):
-    queryset = Submission.objects.all()
     serializer_class = ProblemSubmissionListSerializer
 
     def get_queryset(self):
         problem_id = self.kwargs['pk']
-        return Submission.objects.filter(problem__id=problem_id)
+        return Submission.objects.filter(problem__id=problem_id).order_by('-timestamp')
+    
+    def get(self, request, *args, **kwargs):
+        problem_id = self.kwargs['pk']
+        problem = Problem.objects.get(pk=problem_id)
+        if problem == None:
+            return Response({'detail': 'Problem not found.'}, status=status.HTTP_404_NOT_FOUND)
+        if problem.show_code == False:
+            return Response({'detail': 'You are not allowed to view submissions.'}, status=status.HTTP_403_FORBIDDEN)
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 # Submission Detail View:
 class SubmissionDetailView(generics.RetrieveAPIView):
-    queryset = Submission.objects.all()
+    queryset = Submission.objects.filter(problem__show_code=True).order_by('-timestamp')
     serializer_class = SubmissionSerializer
     
 # Discussion List View:
@@ -130,7 +146,7 @@ class DiscussionListView(generics.ListAPIView):
 
     def get_queryset(self):
         problem_id = self.kwargs['pk']
-        return Discussion.objects.filter(problem_id=problem_id, parent_comment__isnull=True)
+        return Discussion.objects.filter(problem_id=problem_id, parent_comment__isnull=True, problem__show_code=True).order_by('-timestamp')
 
 # Add Discussion View:
 class AddDiscussionView(generics.CreateAPIView):
@@ -141,6 +157,11 @@ class AddDiscussionView(generics.CreateAPIView):
     def create(self, request, pk, *args, **kwargs):
         user = request.user
         problem = Problem.objects.get(pk=pk)
+        if problem == None:
+            return Response({'detail': 'Problem not found.'}, status=status.HTTP_404_NOT_FOUND)
+        if problem.show_code == False:
+            return Response({'detail': 'You are not allowed to add discussion.'}, status=status.HTTP_403_FORBIDDEN)
+        
         comment = request.data.get('comment')
 
         discussion = Discussion.objects.create(

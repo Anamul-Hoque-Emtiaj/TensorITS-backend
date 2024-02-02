@@ -1,5 +1,36 @@
 import torch
 import json
+
+def is_safe_code(user_code: str) -> dict:
+
+    # Check for imported modules
+    modules = set()
+    for line in user_code.split('\n'):
+        if line.strip().startswith('import') or line.strip().startswith('from'):
+            parts = line.split()
+            if parts[0] == 'import':
+                modules.update(set(parts[1:]))
+            elif parts[0] == 'from':
+                modules.add(parts[1])
+    if len(modules) > 0:
+        return {"status": "error", "error": "Forbidden modules: " + str(modules)}
+    
+    # Check for forbidden functions
+    dangerous_functions = {
+        'eval', 'exec', '__import__',
+        'open', 'file', 'execfile', 'compile', 'reload',  # File-related functions
+        'globals', 'locals', 'vars', 'dir',  # Access to global variables
+        'input', 'raw_input',  # User input functions
+        'os.', 'sys.', 'subprocess.',  # System-related functions
+        'socket.', 'urllib.',  # Network-related functions
+        'exit', 'quit'  # Exiting the program
+    }
+    for line in user_code.split('\n'):
+        for func in dangerous_functions:
+            if func in line:
+                return {"status": "error", "error": "Forbidden function: " + func}
+    
+    return {"status": "success"}
 def evaluate_code(user_code: str, problem_dict: dict) -> dict:
     """
     Evaluates the user code against the test cases and returns the results
@@ -7,6 +38,12 @@ def evaluate_code(user_code: str, problem_dict: dict) -> dict:
     :param problem_dict: The problem dictionary
     :return: The results of the test cases
     """
+
+    # Check if the code is safe
+    safe_code_result = is_safe_code(user_code)
+    if safe_code_result["status"] == "error":
+        return safe_code_result
+    
     # usercode should change the variable `tensor`
     test_cases = problem_dict["test_cases"]
     num_test_cases = len(test_cases)
@@ -42,11 +79,11 @@ def evaluate_code(user_code: str, problem_dict: dict) -> dict:
         else:
             test_case_result["correct"] = False
         result_dict[test_case_id] = test_case_result
-
     ret = dict()
+    ret['status'] = "success"
+    ret['result'] = result_dict
     ret['num_test_cases'] = num_test_cases
     ret['num_test_cases_passed'] = num_test_cases_passed
-    ret['result'] = result_dict
 
     return ret
 

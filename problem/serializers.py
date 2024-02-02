@@ -2,10 +2,30 @@ from rest_framework import serializers
 from .models import CustomUser, Problem, TestCase, Submission, Discussion, DiscussionVote
 
 class ProblemSetSerializer(serializers.ModelSerializer):
+    status = serializers.SerializerMethodField()
 
     class Meta:
         model = Problem
-        fields = ['id',"difficulty", "used_manipulator", "solve_count", "try_count",'depth','is_user_added','addedAt']
+        fields = ['id', 'difficulty', 'used_manipulator', 'solve_count', 'try_count', 'depth', 'is_user_added', 'addedAt', 'status']
+
+    def get_status(self, obj):
+        user = self.context['request'].user
+
+        # If the user is anonymous, exclude the 'status' attribute
+        if user.is_anonymous:
+            return None
+
+        # Get the latest submission for the user and the current problem
+        submission = Submission.objects.filter(user=user, problem=obj).order_by('-timestamp').first()
+
+        if submission:
+            # If the user has submitted, check if all test cases passed
+            if submission.num_test_cases_passed == submission.num_test_cases:
+                return 'solved'
+            else:
+                return 'tried'
+        else:
+            return 'not tried'
         
 class TestCaseSerializer(serializers.ModelSerializer):
     class Meta:
