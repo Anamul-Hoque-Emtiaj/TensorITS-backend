@@ -252,12 +252,20 @@ class CreateContestView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-        title = request.data.get('title')
-        start_time = request.data.get('start_time')
-        end_time = request.data.get('end_time')
-        c_id = request.data.get('c_id')
-        password = request.data.get('password')
-        num_random_problem = request.data.get('num_random_problem')
+        serialized_data = CreateContestSerializer(data=request.data)
+        serialized_data.is_valid(raise_exception=True)
+        serialized_data = serialized_data.validated_data
+        print(serialized_data)
+
+        contest_data = serialized_data.get('contest', {})
+        title = contest_data.get('title')
+        start_time = contest_data.get('start_time')
+        end_time = contest_data.get('end_time')
+        c_id = serialized_data.get('c_id')
+        passkey = serialized_data.get('passkey')
+        num_random_problem = serialized_data.get('num_random_problem')
+
+        print(title, start_time, end_time, c_id, passkey, num_random_problem)
 
         contest = Contest.objects.create(
             title=title,
@@ -270,7 +278,7 @@ class CreateContestView(generics.CreateAPIView):
             user=request.user,
             contest=contest,
             c_id=c_id,
-            password=password,
+            passkey=passkey,
             num_random_problem=num_random_problem
         )
 
@@ -314,12 +322,50 @@ class AddProblemToContestView(APIView):
         problem_number = serializer.validated_data.pop('problem_number')
 
         contest_problem = ContestProblem.objects.create(
-            contest=contest,
+            contest=contest.contest,
             problem=problem,
             problem_number=problem_number
         )
 
         return Response({"message": "Problem added to contest successfully."}, status=status.HTTP_201_CREATED)
+    
+# {
+#   "problem": {
+#     "title": "test contest Problem",
+#     "description": "No description",
+#     "depth": 1,
+#     "used_manipulator": {"where": true},
+#        "test_cases": [
+#         {
+#             "input": "[0]",
+#             "output": "[-1]",
+#             "test_case_no": 1
+#         },
+#         {
+#             "input": "[1]",
+#             "output": "[-1]",
+#             "test_case_no": 2
+#         },
+#         {
+#             "input": "[0]",
+#             "output": "[-1]",
+#             "test_case_no": 3
+#         },
+#         {
+#             "input": "[-3]",
+#             "output": "[-1]",
+#             "test_case_no": 4
+#         },
+#         {
+#             "input": "[7]",
+#             "output": "[-1]",
+#             "test_case_no": 5
+#         }
+#     ],
+#     "solution": "o_tensor = torch.where(tensor == 2, 100, -1)\ntensor = o_tensor"
+#   },
+#   "problem_number": 6
+# }
 
 class AddUserToContestView(APIView):
     permission_classes = [IsAuthenticated]
@@ -328,11 +374,11 @@ class AddUserToContestView(APIView):
         contest = Contest.objects.get(pk=pk)
         user = request.user
         c_id = request.data.get('c_id')
-        password = request.data.get('password')
+        passkey = request.data.get('passkey')
 
-        user_contest = UserContest.objects.get(contest=contest, c_id=c_id, password=password)
+        user_contest = UserContest.objects.get(contest=contest, c_id=c_id, passkey=passkey)
         if user_contest == None:
-            return Response({"message": "Invalid contest id or password."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": "Invalid contest id or passkey."}, status=status.HTTP_400_BAD_REQUEST)
 
         contest_user = ContestUser.objects.create(
             contest=contest,

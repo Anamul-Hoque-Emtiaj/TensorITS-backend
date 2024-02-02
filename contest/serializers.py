@@ -40,7 +40,7 @@ class CreateContestSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserContest
-        fields = ['contest','c_id', 'password', 'num_random_problem']
+        fields = ['contest','c_id', 'passkey', 'num_random_problem']
 
 
 class AddProblemToContestSerializer(serializers.ModelSerializer):
@@ -51,6 +51,6 @@ class AddProblemToContestSerializer(serializers.ModelSerializer):
 
 class AddUserToContestSerializer(serializers.Serializer):
     c_id = serializers.CharField()
-    password = serializers.CharField()
+    passkey = serializers.CharField()
 
 
