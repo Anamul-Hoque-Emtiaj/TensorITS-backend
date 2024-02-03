@@ -35,6 +35,8 @@ class ContestListSerializer(serializers.Serializer):
     title = serializers.CharField()
     users_count = serializers.IntegerField()
     is_user_added = serializers.BooleanField()
+    start_time = serializers.DateTimeField()
+    end_time = serializers.DateTimeField()
 
 
 # ContestProblem Serializer

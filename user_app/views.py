@@ -17,8 +17,7 @@ import json
 
 
 
-from .serializers import SignUpSerializer,LoginSerializer,UserSerializer, AchievementSerializer, UserAchievementSerializer, userProblemSerializer,UserAddProblemSerializer,UserSubmissionListSerializer
-from problem.serializers import ProblemSetSerializer
+from .serializers import SignUpSerializer,LoginSerializer,UserSerializer, AchievementSerializer, UserAchievementSerializer, UserProblemSerializer,UserAddProblemSerializer,UserSubmissionListSerializer
 from contest.serializers import ContestListSerializer
 
 # Create your views here.
@@ -113,34 +112,34 @@ class UserDetailView(APIView):
 
 # User Added Problem List View:
 class UserProblemListView(APIView):
-    serializer_class = ProblemSetSerializer
-    def get(self, request, user_id):
-        user_problems = UserProblem.objects.filter(user_id=user_id)
-        serializer = userProblemSerializer(user_problems, many=True)
+    serializer_class = UserProblemSerializer
+    def get(self, request, pk):
+        user_problems = UserProblem.objects.filter(user_id=pk)
+        serializer = UserProblemSerializer(user_problems, many=True)
         return Response(serializer.data)
 
 # User Contest List View:
-class UserContestListView(generics.ListAPIView):
+class UserContestListView(APIView):
     serializer_class = ContestListSerializer
 
-    def get_queryset(self):
+    def get(self, request, pk):
         pk = self.kwargs['pk']
         user = CustomUser.objects.get(pk=pk)
-        contests = Contest.objects.all(user=user)
+        if user == None:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        contests = ContestUser.objects.filter(user=user).order_by('-contest__start_time')
         data = []
         for contest in contests:
+            contest = contest.contest
             users_count = ContestUser.objects.filter(contest=contest).count()
             data.append({
                 'id': contest.id,
                 'title': contest.title,
                 'users_count': users_count,
+                'start_time': contest.start_time,
+                'end_time': contest.end_time,
             })
-        return data
-
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        serializer = self.serializer_class({'completed_contests': queryset})
-        return Response(serializer.data)
+        return Response(data, status=status.HTTP_200_OK)
 
 # User Submission List View:
 class UserSubmissionListView(generics.ListAPIView):
@@ -203,10 +202,48 @@ class UserAddProblemView(APIView):
         # Create ManipulatorChoice instance
         used_manipulator_instance = json.dumps(true_manipulator_items)
         # Create Problem instance
-        problem = Problem.objects.create(is_user_added=True,used_manipulator=used_manipulator_instance, **validated_data)
+        problem = Problem.objects.create(is_user_added=True,show_code=True,used_manipulator=used_manipulator_instance, **validated_data)
 
         # Create TestCase instances
         for test_case_data in test_cases_data:
             TestCase.objects.create(problem=problem, **test_case_data)
+        
+        # Create UserProblem instance
+        UserProblem.objects.create(user=user, problem=problem)
 
         return Response({'message': f'Problem "{problem.title}" added successfully.'}, status=status.HTTP_201_CREATED)
+    
+# {
+#     "title": "test user Problem",
+#     "description": "No description",
+#     "depth": 2,
+#     "used_manipulator": {"unique": true},
+#        "test_cases": [
+#         {
+#             "input": "[[-6, -2], [6, 2]]",
+#             "output": "[[-6, -2], [6, 2]]",
+#             "test_case_no": 1
+#         },
+#         {
+#             "input": "[[-10, -5], [-1, -8]]",
+#             "output": "[[-10, -5], [-1, -8]]",
+#             "test_case_no": 2
+#         },
+#         {
+#             "input": "[[-2, -5], [-10, 1]]",
+#             "output": "[[-5, -2], [1, -10]]",
+#             "test_case_no": 3
+#         },
+#         {
+#             "input": "[[9, 2], [9, 2]]",
+#             "output": "[[2, 9]]",
+#             "test_case_no": 4
+#         },
+#         {
+#             "input": "[[-6, 8], [-5, -4]]",
+#             "output": "[[-6, 8], [-5, -4]]",
+#             "test_case_no": 5
+#         }
+#     ],
+#     "solution": "o_tensor = torch.unique(tensor, dim=1)\ntensor = o_tensor\no_tensor = torch.unique(tensor, dim=0)\ntensor = o_tensor"
+#   }

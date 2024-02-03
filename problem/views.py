@@ -21,9 +21,63 @@ class HomePageView(APIView):
     
 # Problem Set View:
 class ProblemSetView(generics.ListAPIView):
-    queryset = Problem.objects.filter(show_code=True).order_by('-addedAt')
     serializer_class = ProblemSetSerializer
     pagination_class = ProblemSetPagination
+
+    def get_queryset(self):
+        queryset = Problem.objects.filter(show_code=True).order_by('-addedAt')
+
+        # Get query parameters
+        difficulty__gte = self.request.query_params.get('difficulty__gte')
+        difficulty__lte = self.request.query_params.get('difficulty__lte')
+        depth__gte = self.request.query_params.get('depth__gte')
+        depth__lte = self.request.query_params.get('depth__lte')
+        is_user_added = self.request.query_params.get('is_user_added')
+
+        # Check if the query parameter exists and filter accordingly
+        if difficulty__gte:
+            queryset = queryset.filter(difficulty__gte=float(difficulty__gte))
+        if difficulty__lte:
+            queryset = queryset.filter(difficulty__lte=float(difficulty__lte))
+        if depth__gte:
+            queryset = queryset.filter(depth__gte=int(depth__gte))
+        if depth__lte:
+            queryset = queryset.filter(depth__lte=int(depth__lte))
+        if is_user_added:
+            queryset = queryset.filter(is_user_added=is_user_added.lower() == 'true')
+
+        # Check for each manipulator and filter if it's true
+        manipulators = [
+            "argwhere", "tensor_split", "gather", "masked_select",
+            "movedim", "splicing", "t", "take", "tile", "unsqueeze",
+            "negative", "positive", "where", "remainder", "clip",
+            "argmax", "argmin", "sum", "unique"
+        ]
+
+        used_manip = []
+        for manipulator in manipulators:
+            manipulator_value = self.request.query_params.get(manipulator)
+            if manipulator_value and manipulator_value.lower() == 'true':
+                used_manip.append(manipulator)
+        
+        filtered_queryset = []
+        for problem in queryset:
+            used_manipulator = problem.used_manipulator
+            if all(manipulator in used_manipulator for manipulator in used_manip):
+                filtered_queryset.append(problem)
+
+        return filtered_queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 class RunProblemView(APIView):
     serializer_class = RunProblemSerializer

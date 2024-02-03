@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import generics,status
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
-from problem.serializers import ProblemSubmitSerializer, ModeProblemSerializer, ProblemDetailsSerializer
+from problem.serializers import ProblemSubmitSerializer, ModeProblemSerializer, ProblemDetailsSerializer, ProblemSubmissionListSerializer
 import json
 from math import log2
 from .serializers import (
@@ -14,7 +14,7 @@ from .serializers import (
     AddProblemToContestSerializer,
     AddUserToContestSerializer
 )
-from problem.models import Submission, Problem, TestCase
+from problem.models import Submission, Problem, TestCase, UserProblem
 from .models import (
     Contest,
     ContestProblem,
@@ -106,7 +106,9 @@ class ContestListView(generics.ListAPIView):
                 'id': contest.id,
                 'title': contest.title,
                 'users_count': users_count,
-                'is_user_added': contest.is_user_added
+                'is_user_added': contest.is_user_added,
+                'start_time': contest.start_time,
+                'end_time': contest.end_time
             })
         return data
 
@@ -358,6 +360,9 @@ class AddProblemToContestView(APIView):
             problem_number=problem_number
         )
 
+        # create user problem
+        user_problem = UserProblem.objects.create(user=request.user, problem=problem)
+
         return Response({"message": "Problem added to contest successfully."}, status=status.HTTP_201_CREATED)
     
 # {
@@ -438,4 +443,30 @@ class SearchContestView(APIView):
         
         users_count = ContestUser.objects.filter(contest=contest).count()
         data = { 'id': contest.id, 'title': contest.title, 'users_count': users_count, 'start_time':contest.start_time, 'end_time':contest.end_time }
+        return Response(data, status=status.HTTP_200_OK)
+    
+class ContestSubmissionListView(APIView):
+    serializer_class = ProblemSubmissionListSerializer
+
+    def get(self, request, pk):
+        contest = Contest.objects.filter(id=pk).first()
+        if contest == None:
+            return Response({"message": "Contest does not exist."}, status=status.HTTP_400_BAD_REQUEST)
+        elif contest.start_time > timezone.now():
+            return Response({"message": "Contest has not started yet."}, status=status.HTTP_400_BAD_REQUEST)
+        contest_submissions = ContestSubmission.objects.filter(contest_problem__contest_id=pk).order_by('-submission__timestamp')
+        data = []
+        for contest_submission in contest_submissions:
+            submission = contest_submission.submission
+            data.append({
+                'id': submission.id,
+                'user': {'id': submission.user.id, 'username': submission.user.username},
+                'problem': contest_submission.contest_problem.problem.title,
+                'code': submission.code,
+                'test_case_verdict': submission.test_case_verdict,
+                'num_test_cases': submission.num_test_cases,
+                'num_test_cases_passed': submission.num_test_cases_passed,
+                'taken_time': submission.taken_time,
+                'timestamp': submission.timestamp
+            })
         return Response(data, status=status.HTTP_200_OK)
