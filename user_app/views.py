@@ -247,3 +247,13 @@ class UserAddProblemView(APIView):
 #     ],
 #     "solution": "o_tensor = torch.unique(tensor, dim=1)\ntensor = o_tensor\no_tensor = torch.unique(tensor, dim=0)\ntensor = o_tensor"
 #   }
+
+
+class GetCSRFtokenView(APIView):
+    def get(self, request):
+        if request.headers.get('cookie'):
+            csrf_token = request.headers.get('cookie').split('csrftoken=')[1].split(';')[0]
+            print(csrf_token)
+            return Response({'csrftoken': csrf_token}, status=status.HTTP_200_OK)
+        else:
+            return Response({'csrftoken':None,'error': 'CSRF token not found'}, status=status.HTTP_404_NOT_FOUND)

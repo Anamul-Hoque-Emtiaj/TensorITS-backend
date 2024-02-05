@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     SignUpView, SignInWithGoogleView, SignInWithEmailPassView,SignOutView,
-    UserAddProblemView,
+    UserAddProblemView,GetCSRFtokenView,
     UserDetailView, UserAchievementListView,UserProblemListView,
     UserContestListView,UserSubmissionListView,UserQuantityModeListView,
     UserTimeModeListView,UserCustomModeListView,AchievementListView
@@ -12,6 +12,7 @@ urlpatterns = [
     path('api/signin-with-google/', SignInWithGoogleView.as_view(), name='signin_with_google'),
     path('api/signin-with-email-password/', SignInWithEmailPassView.as_view(), name='signin'),
     path('api/signout/', SignOutView.as_view(), name='signout'),
+    path('api/get-csrftoken/', GetCSRFtokenView.as_view(), name='get_csrftoken'),
 
     # Achievement
     path('api/achievement/', AchievementListView.as_view(), name='achievement_list'),

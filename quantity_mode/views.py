@@ -22,7 +22,7 @@ class QuantityModeView(generics.RetrieveAPIView):
                 serializer = QuantityModeSerializer(quantity_mode)
                 return Response(serializer.data, status=status.HTTP_200_OK)
             except QuantityMode.DoesNotExist:
-                return Response({'detail': 'Quantity mode not found'}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'detail': 'Quantity mode not found'}, status=status.HTTP_204_NO_CONTENT)
         else:
             if request.session.get('quantity_mode')=='on':
                 pid = request.session.get('quantity_mode_pid')
@@ -32,7 +32,7 @@ class QuantityModeView(generics.RetrieveAPIView):
                 serializer = ModeProblemSerializer(problem)
                 return Response({'current_problem':serializer.data,'current_problem_num':current_problem_num,'number_of_problems':number_of_problems}, status=status.HTTP_200_OK)
             else:
-                return Response({'detail': 'Quantity mode not found'}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'detail': 'Quantity mode not found'}, status=status.HTTP_204_NO_CONTENT)
 class QuantityModeCreateView(generics.CreateAPIView):
     serializer_class = QuantityModeCreateSerializer
 

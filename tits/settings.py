@@ -27,6 +27,7 @@ SECRET_KEY = 'django-insecure--x&=u15#rnvvo*=%v=-h3xyn_58y)ml8ncm-xb1@tw8hw)$g*o
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
+CSRF_TRUSTED_ORIGINS = ['http://localhost:5173']
 
 FIREBASE_ACCOUNT_TYPE = os.environ.get('FIREBASE_ACCOUNT_TYPE')
 FIREBASE_PROJECT_ID = os.environ.get('FIREBASE_PROJECT_ID')
