@@ -123,10 +123,11 @@ class DiscussionSerializer(serializers.ModelSerializer):
     timestamp = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     vote = serializers.SerializerMethodField()
     replies = serializers.SerializerMethodField()
+    user_vote = serializers.SerializerMethodField()
 
     class Meta:
         model = Discussion
-        fields = ['id', 'user', 'comment', 'timestamp', 'vote', 'replies']
+        fields = ['id', 'user', 'comment', 'timestamp', 'vote', 'user_vote','replies']
 
     def get_vote(self, obj):
         upvotes = obj.discussionvote_set.filter(vote='up').count()
@@ -137,6 +138,16 @@ class DiscussionSerializer(serializers.ModelSerializer):
         replies = Discussion.objects.filter(parent_comment=obj)
         serializer = DiscussionSerializer(replies, many=True)
         return serializer.data
+    
+    def get_user_vote(self, obj):
+        user = self.context['request'].user
+        if user.is_anonymous:
+            return None
+        vote = DiscussionVote.objects.filter(discussion=obj, user=user).first()
+        if vote:
+            return vote.vote
+        else:
+            return None
 
 class RunProblemSerializer(serializers.Serializer):
     test_cases = serializers.JSONField()

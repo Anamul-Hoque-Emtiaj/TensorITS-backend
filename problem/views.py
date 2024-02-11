@@ -198,6 +198,11 @@ class SubmissionDetailView(generics.RetrieveAPIView):
 class DiscussionListView(generics.ListAPIView):
     serializer_class = DiscussionSerializer
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context.update({'request': self.request})
+        return context
+
     def get_queryset(self):
         problem_id = self.kwargs['pk']
         return Discussion.objects.filter(problem_id=problem_id, parent_comment__isnull=True, problem__show_code=True).order_by('-timestamp')
