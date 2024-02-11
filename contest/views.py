@@ -442,7 +442,7 @@ class SearchContestView(APIView):
             contest = contest.contest
         
         users_count = ContestUser.objects.filter(contest=contest).count()
-        data = { 'id': contest.id, 'title': contest.title, 'users_count': users_count, 'start_time':contest.start_time, 'end_time':contest.end_time }
+        data = { 'id': contest.id, 'title': contest.title, 'users_count': users_count, 'start_time':contest.start_time, 'end_time':contest.end_time, 'is_user_added': contest.is_user_added }
         return Response(data, status=status.HTTP_200_OK)
     
 class ContestSubmissionListView(APIView):

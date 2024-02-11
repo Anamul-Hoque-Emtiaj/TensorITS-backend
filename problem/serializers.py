@@ -135,8 +135,9 @@ class DiscussionSerializer(serializers.ModelSerializer):
         return upvotes - downvotes
 
     def get_replies(self, obj):
+        request = self.context.get('request')
         replies = Discussion.objects.filter(parent_comment=obj)
-        serializer = DiscussionSerializer(replies, many=True)
+        serializer = DiscussionSerializer(replies, many=True, context={'request': request})
         return serializer.data
     
     def get_user_vote(self, obj):
