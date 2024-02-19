@@ -44,3 +44,11 @@ class OneVOneProblem(models.Model):
 class OneVOneSubmission(models.Model):
     submission = models.ForeignKey(Submission, on_delete=models.CASCADE)
     oneVone_problem = models.ForeignKey(OneVOneProblem, on_delete=models.CASCADE)
+
+class OneVOneNotification(models.Model):
+    oneVonesubmission = models.ForeignKey(OneVOneSubmission, on_delete=models.CASCADE)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    timestamp = models.DateTimeField(default=timezone.now)
+    is_read = models.BooleanField(default=False)
+    def __str__(self):
+        return self.message

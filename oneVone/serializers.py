@@ -67,8 +67,18 @@ class OneVOneSerializer(serializers.ModelSerializer):
         problems = OneVOneProblem.objects.filter(oneVone=oneVone).order_by('problem_number')
         ret = dict()
         for problem in problems:
-            is_user1_solved = Submission.objects.filter(problem=problem.problem, user=oneVone.primary_user, num_test_cases_passed=5).exists()
-            is_user2_solved = Submission.objects.filter(problem=problem.problem, user=oneVone.secondary_user, num_test_cases_passed=5).exists()
+            s1 = Submission.objects.filter(problem=problem.problem, user=oneVone.primary_user, num_test_cases_passed=5).first()
+            s2 = Submission.objects.filter(problem=problem.problem, user=oneVone.secondary_user, num_test_cases_passed=5).first()
+            if s1:
+                time_diff = s1.timestamp-oneVone.started_at
+                is_user1_solved = time_diff.total_seconds()
+            else:
+                is_user1_solved = -1
+            if s2:
+                time_diff = s2.timestamp-oneVone.started_at
+                is_user2_solved = time_diff.total_seconds()
+            else:
+                is_user2_solved = -1
             ret[problem.problem_number] = {'id': problem.problem.id, 'is_user1_solved':is_user1_solved,'is_user2_solved':is_user2_solved}
         return ret
     def get_user1(self, oneVone):

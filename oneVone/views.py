@@ -5,7 +5,7 @@ from utils.utils import xp_to_level
 from rest_framework.permissions import IsAuthenticated
 from utils.code_runner import evaluate_code
 from .serializers import CreateOneVOneSerializer, OneVOneSerializer
-from .models import OneVOne,OneVOneProblem
+from .models import OneVOne,OneVOneProblem,OneVOneNotification,OneVOneSubmission
 from problem.models import Submission, Problem, TestCase
 from problem.serializers import ProblemSubmitSerializer,ModeProblemSerializer
 from random import choice
@@ -112,7 +112,40 @@ class JoinView(APIView):
         else:
             return Response({'error':'No oneVone found with this key'}, status=status.HTTP_404_NOT_FOUND) 
 class StatusView(APIView):
-    pass 
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        oneVones = OneVOne.objects.filter(primary_user=request.user, primary_user_status=OneVOne.JOINED, status=OneVOne.STARTED).union(OneVOne.objects.filter(secondary_user=request.user, secondary_user_status=OneVOne.JOINED, status=OneVOne.STARTED)).first()
+        if oneVones is None:
+            return Response({'error':'No oneVone found'}, status=status.HTTP_404_NOT_FOUND)
+        oneVoneNotification = OneVOneNotification.objects.filter(user=request.user, is_read=False)
+        problems = OneVOneProblem.objects.filter(oneVone=oneVones).order_by('problem_number')
+        ret = dict()
+        user1_solved = 0
+        user2_solved = 0
+        for problem in problems:
+            s1 = Submission.objects.filter(problem=problem.problem, user=oneVones.primary_user, num_test_cases_passed=5).first()
+            s2 = Submission.objects.filter(problem=problem.problem, user=oneVones.secondary_user, num_test_cases_passed=5).first()
+            if s1:
+                time_diff = s1.timestamp-oneVones.started_at
+                is_user1_solved = time_diff.total_seconds()
+                user1_solved += 1
+            else:
+                is_user1_solved = -1
+            if s2:
+                time_diff = s2.timestamp-oneVones.started_at
+                is_user2_solved = time_diff.total_seconds()
+                user2_solved += 1
+            else:
+                is_user2_solved = -1
+            ret[problem.problem_number] = {'id': problem.problem.id, 'is_user1_solved':is_user1_solved,'is_user2_solved':is_user2_solved}
+        if oneVoneNotification.exists():
+            oneVoneNotification = oneVoneNotification.first()
+            problem_number = oneVoneNotification.oneVonesubmission.oneVone_problem.problem_number
+            solved_at = oneVoneNotification.oneVonesubmission.submission.timestamp-oneVones.started_at
+            oneVoneNotification.update(is_read=True) 
+            return Response({'haveNew':True,'problem_number':problem_number, 'solved_at':solved_at,'user1_solved':user1_solved,'user2_solved':user2_solved,'problems_status':ret}, status=status.HTTP_200_OK)
+        return Response({'haveNew':False,'user1_solved':user1_solved,'user2_solved':user2_solved,'problems_status':ret}, status=status.HTTP_200_OK)
+
 class OneVOneView(APIView):
     serializer_class = CreateOneVOneSerializer
     permission_classes = [IsAuthenticated]
@@ -127,7 +160,7 @@ class ProblemSubmitView(APIView):
     serializer_class = ProblemSubmitSerializer
     permission_classes = [IsAuthenticated]
 
-    def create(self, request,pid, *args, **kwargs): 
+    def post(self, request,pid, *args, **kwargs): 
         oneVones = OneVOne.objects.filter(primary_user=request.user, primary_user_status=OneVOne.JOINED, status=OneVOne.STARTED).union(OneVOne.objects.filter(secondary_user=request.user, secondary_user_status=OneVOne.JOINED, status=OneVOne.STARTED)).first()
         if oneVones is None:
             return Response({'error':'No oneVone found'}, status=status.HTTP_404_NOT_FOUND)
@@ -171,15 +204,21 @@ class ProblemSubmitView(APIView):
         user.xp = user.xp + float(problem.difficulty)*0.6 + accuracy*5.0
         user.level = xp_to_level(user.xp)
         user.save()
+        oneVoneSubmission = OneVOneSubmission.objects.create(submission=submission, oneVone_problem=oneVoneProblem)
 
         if accuracy == 1:
             problem.solve_count += 1
             problem.try_count += 1
             problem.save()
+            if oneVones.primary_user == user:
+                OneVOneNotification.objects.create(oneVonesubmission=oneVoneSubmission, user=oneVones.secondary_user)
+            else:
+                OneVOneNotification.objects.create(oneVonesubmission=oneVoneSubmission, user=oneVones.primary_user)
+
         else:
             problem.try_count += 1
             problem.save()
-        oneVoneSubmission = oneVoneSubmission(submission=submission, oneVone_problem=oneVoneProblem)
+        
         return Response(json.dumps(result), status=status.HTTP_201_CREATED)
 
 class LeftView(APIView):
