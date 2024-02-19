@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'quantity_mode',
     'time_mode',
     'custom_mode',
+    'oneVone',
 ]
 
 MIDDLEWARE = [
