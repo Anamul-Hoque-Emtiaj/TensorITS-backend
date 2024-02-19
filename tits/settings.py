@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'time_mode',
     'custom_mode',
     'oneVone',
+    'discussion_forum',
 ]
 
 MIDDLEWARE = [
