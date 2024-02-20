@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     SignUpView, SignInWithGoogleView, SignInWithEmailPassView,SignOutView,
-    UserAddProblemView,GetCSRFtokenView,
+    UserAddProblemView,GetCSRFtokenView,OneVOneListView,
     UserDetailView, UserAchievementListView,UserProblemListView,
     UserContestListView,UserSubmissionListView,UserQuantityModeListView,
     UserTimeModeListView,UserCustomModeListView,AchievementListView
@@ -22,6 +22,7 @@ urlpatterns = [
     path('api/user/add-problem/', UserAddProblemView.as_view(), name='user_add_problem'),
     path('api/user/<int:pk>/problem-list/', UserProblemListView.as_view(), name='user_added_problem_list'),
     path('api/user/<int:pk>/contest-list/', UserContestListView.as_view(), name='user_completed_contest_list'),
+    path('api/user/<int:pk>/1-v-1-list/', OneVOneListView.as_view(), name='user_completed_1_v_1_list'),
     path('api/user/<int:pk>/submission/', UserSubmissionListView.as_view(), name='user_submission_list'),
     path('api/user/<int:user_id>/quantity-mode/', UserQuantityModeListView.as_view(), name='user_quantity_mode_list'),
     path('api/user/<int:user_id>/time-mode/', UserTimeModeListView.as_view(), name='user_time_mode_list'),

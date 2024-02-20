@@ -9,10 +9,11 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.hashers import check_password
 from .models import  CustomUser, Achievement, UserAchievement
 from problem.models import Submission, UserProblem, Problem, TestCase
-from contest.models import ContestUser, Contest
+from contest.models import ContestUser, UserContest
 from quantity_mode.models import QuantityModeSubmission
 from time_mode.models import TimeModeSubmission
 from custom_mode.models import CustomModeSubmission
+from oneVone.models import OneVOne
 import json
 
 
@@ -139,7 +140,19 @@ class UserContestListView(APIView):
                 'start_time': contest.start_time,
                 'end_time': contest.end_time,
             })
-        return Response(data, status=status.HTTP_200_OK)
+        data2 = []
+        contests = UserContest.objects.filter(user=user).order_by('-contest__start_time')
+        for contest in contests:
+            contest = contest.contest
+            users_count = ContestUser.objects.filter(contest=contest).count()
+            data2.append({
+                'id': contest.id,
+                'title': contest.title,
+                'users_count': users_count,
+                'start_time': contest.start_time,
+                'end_time': contest.end_time,
+            })
+        return Response({"Created_contest":data2,"attended_contest":data}, status=status.HTTP_200_OK)
 
 # User Submission List View:
 class UserSubmissionListView(generics.ListAPIView):
@@ -257,3 +270,38 @@ class GetCSRFtokenView(APIView):
             return Response({'csrftoken': csrf_token}, status=status.HTTP_200_OK)
         else:
             return Response({'csrftoken':None,'error': 'CSRF token not found'}, status=status.HTTP_404_NOT_FOUND)
+
+class OneVOneListView(APIView):
+    def get(self, request, pk):
+        user = CustomUser.objects.get(id=pk)
+        if user == None:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        one_v_one_list = OneVOne.objects.filter(primary_user=user)
+        data = []
+        for one_v_one in one_v_one_list:
+            if one_v_one.secondary_user == None:
+                opponent = {"status": "not joined"}
+            else:
+                opponent = {"id": one_v_one.secondary_user.id, "username": one_v_one.secondary_user.username}
+            data.append({
+                'id': one_v_one.id,
+                'title': one_v_one.title,
+                'description': one_v_one.description,
+                'duration': one_v_one.duration,
+                'num_of_problem': one_v_one.num_of_problem,
+                'status': one_v_one.status,
+                'opponent': opponent
+            })
+        one_v_one_list = OneVOne.objects.filter(secondary_user=user)
+        data2 = []
+        for one_v_one in one_v_one_list:
+            data2.append({
+                'id': one_v_one.id,
+                'title': one_v_one.title,
+                'description': one_v_one.description,
+                'duration': one_v_one.duration,
+                'num_of_problem': one_v_one.num_of_problem,
+                'status': one_v_one.status,
+                'opponent': {"id": one_v_one.primary_user.id, "username": one_v_one.primary_user.username}
+            })
+        return Response({"created":data,"invited":data2}, status=status.HTTP_200_OK)
