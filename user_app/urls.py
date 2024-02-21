@@ -1,8 +1,10 @@
 from django.urls import path
+from django.conf import settings
+from django.conf.urls.static import static
 from .views import (
     SignUpView, SignInWithGoogleView, SignInWithEmailPassView,SignOutView,
-    UserAddProblemView,GetCSRFtokenView,OneVOneListView,
-    UserDetailView, UserAchievementListView,UserProblemListView,
+    UserAddProblemView,GetCSRFtokenView,OneVOneListView,ChangePasswordView,
+    UserDetailView, UserAchievementListView,UserProblemListView,EditProfileView,
     UserContestListView,UserSubmissionListView,UserQuantityModeListView,
     UserTimeModeListView,UserCustomModeListView,AchievementListView
 )
@@ -29,4 +31,8 @@ urlpatterns = [
     path('api/user/<int:user_id>/custom-mode/', UserCustomModeListView.as_view(), name='user_custom_mode_list'),
     path('api/user/<int:user_id>/achievement/', UserAchievementListView.as_view(), name='user_achievement_list'),
 
+    path('api/user/change-password/', ChangePasswordView.as_view(), name='user_change_password'),
+    path('api/user/edit-profile/', EditProfileView.as_view(), name='user_edit_profile'),
 ]
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

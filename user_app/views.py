@@ -18,7 +18,7 @@ import json
 
 
 
-from .serializers import SignUpSerializer,LoginSerializer,UserSerializer, AchievementSerializer, UserAchievementSerializer, UserProblemSerializer,UserAddProblemSerializer,UserSubmissionListSerializer
+from .serializers import SignUpSerializer,LoginSerializer,UserSerializer, AchievementSerializer, UserAchievementSerializer, UserProblemSerializer,UserAddProblemSerializer,UserSubmissionListSerializer,EditProfileSerializer
 from contest.serializers import ContestListSerializer
 
 # Create your views here.
@@ -305,3 +305,64 @@ class OneVOneListView(APIView):
                 'opponent': {"id": one_v_one.primary_user.id, "username": one_v_one.primary_user.username}
             })
         return Response({"created":data,"invited":data2}, status=status.HTTP_200_OK)
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return Response({'error': 'You are not logged in'}, status=status.HTTP_401_UNAUTHORIZED)
+        user = request.user
+        old_password = request.data.get('old_password')
+        new_password = request.data.get('new_password')
+        confirm_password = request.data.get('confirm_password')
+
+        if not old_password or not new_password or not confirm_password:
+            return Response({'error': 'All fields are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not check_password(old_password, user.password):
+            return Response({'error': 'Old password is incorrect'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if new_password != confirm_password:
+            return Response({'error': 'New password and confirm password do not match'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_password)
+        user.save()
+        return Response({'message': 'Password changed successfully'}, status=status.HTTP_200_OK)
+
+class EditProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = EditProfileSerializer
+    def post(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return Response({'error': 'You are not logged in'}, status=status.HTTP_401_UNAUTHORIZED)
+        user = request.user
+        first_name = request.data.get('first_name')
+        last_name = request.data.get('last_name')
+        email = request.data.get('email')
+        image = request.data.get('image')
+        username = request.data.get('username')
+
+        if first_name:
+            user.first_name = first_name
+
+        if last_name:
+            user.last_name = last_name
+
+        if email:
+            u = CustomUser.objects.filter(email=email)
+            if u.exists() and u[0].id != user.id:
+                return Response({'error': 'Email already exists'}, status=status.HTTP_400_BAD_REQUEST)
+            user.email = email
+
+        if image:
+            user.image = image
+        
+        if username:
+            u = CustomUser.objects.filter(username=username)
+            if u.exists() and u[0].id != user.id:
+                return Response({'error': 'Username already exists'}, status=status.HTTP_400_BAD_REQUEST)
+            user.username = username
+
+        user.save()
+        return Response({'message': 'Profile updated successfully'}, status=status.HTTP_200_OK)

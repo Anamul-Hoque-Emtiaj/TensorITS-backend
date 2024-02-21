@@ -111,3 +111,8 @@ class UserAddProblemSerializer(serializers.ModelSerializer):
     class Meta:
         model = Problem
         fields = ['title', 'description', 'depth', 'used_manipulator', 'test_cases', 'solution', 'editorial_image']
+
+class EditProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ['first_name', 'last_name', 'email','username','image']
