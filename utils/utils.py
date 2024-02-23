@@ -96,3 +96,5 @@ def generate_custom_problem(depth,chosen_initiator=ci,chosen_manipulator=cm):
     
 def xp_to_level(xp):
     return sqrt(xp)*0.07
+def max_xp(level):
+    return (level/0.07)**2
