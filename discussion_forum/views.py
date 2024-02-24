@@ -19,7 +19,6 @@ class AddDiscussionView(APIView):
 class DiscussionView(generics.ListAPIView):
     queryset = DiscussionForum.objects.all()
     serializer_class = DiscussionForumSerializer
-    permission_classes = [IsAuthenticated]
 
 class DiscussionDetailsView(generics.RetrieveAPIView):
     serializer_class = DiscussionForumDetailsSerializer
