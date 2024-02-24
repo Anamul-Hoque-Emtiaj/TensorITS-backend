@@ -150,7 +150,7 @@ class OneVOneView(APIView):
     serializer_class = CreateOneVOneSerializer
     permission_classes = [IsAuthenticated]
     def get(self, request):
-        oneVones = OneVOne.objects.filter(primary_user=request.user, primary_user_status=OneVOne.JOINED, status=OneVOne.STARTED).union(OneVOne.objects.filter(secondary_user=request.user, secondary_user_status=OneVOne.JOINED, status=OneVOne.STARTED)).first()
+        oneVones = OneVOne.objects.filter(primary_user=request.user, primary_user_status=OneVOne.JOINED).union(OneVOne.objects.filter(secondary_user=request.user, secondary_user_status=OneVOne.JOINED)).first()
         if oneVones is None:
             return Response({'error':'No oneVone found'}, status=status.HTTP_404_NOT_FOUND)
         serialized_data = OneVOneSerializer(oneVones)

@@ -11,7 +11,7 @@ from time_mode.models import TimeModeSubmission
 from quantity_mode.models import QuantityModeSubmission
 from contest.models import ContestUser
 from utils.utils import max_xp
-from django.db.models import Count
+from django.db.models import Count, F
 
 
 class SignUpSerializer(serializers.Serializer):
@@ -91,7 +91,9 @@ class UserSerializer(serializers.ModelSerializer):
     def get_num_of_prob_solved_in_quantity_mode(self, obj):
         return QuantityModeSubmission.objects.filter(quantity_mode__user=obj).filter(submission__num_test_cases_passed=5).count()
     def get_num_of_1_v_1_won(self, obj): #TODO
-        return OneVOne.objects.filter(primary_user=obj).union(OneVOne.objects.filter(secondary_user=obj)).count()
+        pu = OneVOne.objects.filter(primary_user=obj).filter(primary_user_score__gt=F('secondary_user_score')).count()
+        su = OneVOne.objects.filter(secondary_user=obj).filter(secondary_user_score__gt=F('primary_user_score')).count()
+        return pu+su
     def get_num_of_prob_attempted_in_custom_mode(self, obj):
         return CustomModeSubmission.objects.filter(custom_mode__user=obj).values('submission__problem').annotate(total=Count('submission__problem')).count()
     def get_num_of_prob_attempted_in_time_mode(self, obj):

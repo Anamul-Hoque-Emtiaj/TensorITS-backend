@@ -62,7 +62,7 @@ class OneVOneSerializer(serializers.ModelSerializer):
     user2 = serializers.SerializerMethodField()
     class Meta:
         model = OneVOne
-        fields = ['title','description', 'duration', 'num_of_problem','user1','user2','started_at','problem_list']
+        fields = ['title','description', 'duration', 'status','num_of_problem','user1','user2','started_at','problem_list']
     def get_problem_list(self, oneVone):
         problems = OneVOneProblem.objects.filter(oneVone=oneVone).order_by('problem_number')
         ret = dict()
@@ -82,9 +82,21 @@ class OneVOneSerializer(serializers.ModelSerializer):
             ret[problem.problem_number] = {'id': problem.problem.id, 'is_user1_solved':is_user1_solved,'is_user2_solved':is_user2_solved}
         return ret
     def get_user1(self, oneVone):
-        return {'username':oneVone.primary_user.username, 'id':oneVone.primary_user.id}
+        return {'username':oneVone.primary_user.username, 'id':oneVone.primary_user.id, 'score':oneVone.primary_user_score}
     def get_user2(self, oneVone):
-        return {'username':oneVone.primary_user.username, 'id':oneVone.primary_user.id} if oneVone.secondary_user else None
+        return {'username':oneVone.secondary_user.username, 'id':oneVone.secondary_user.id, 'score':oneVone.secondary_user_score} if oneVone.secondary_user else None
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        if ret['status'] == 'created':
+            ret.pop('problem_list')
+        elif ret['status'] == 'ended':
+            if ret['user1']['score'] > ret['user2']['score']:
+                ret['winner'] = ret['user1']['username']
+            elif ret['user1']['score'] < ret['user2']['score']:
+                ret['winner'] = ret['user2']['username']
+            else:
+                ret['winner'] = 'Draw'
+        return ret
     
     
 
