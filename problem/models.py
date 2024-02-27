@@ -59,3 +59,9 @@ class DiscussionVote(models.Model):
     discussion = models.ForeignKey(Discussion, on_delete=models.CASCADE)
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     vote = models.CharField(choices=VOTE_CHOICES,default=VOTE_NONE, max_length=10)
+
+#For Online
+class SavedProblem(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    problem = models.ForeignKey(Problem, on_delete=models.CASCADE)
+    timestamp = models.DateTimeField(auto_now_add=True)
