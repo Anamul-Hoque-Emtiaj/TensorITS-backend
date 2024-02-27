@@ -2,7 +2,7 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 import json
 from .models import CustomUser, Achievement, UserAchievement
-from problem.models import Problem,  Submission, UserProblem
+from problem.models import Problem,  Submission, UserProblem,SavedProblem
 from problem.serializers import TestCaseSerializer
 from custom_mode.serializers import ManipulatorChoiceSerializer
 from oneVone.models import OneVOne
@@ -168,3 +168,23 @@ class EditProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ['first_name', 'last_name', 'email','username','image']
+
+#for online
+class UserSavedProblemSerializer(serializers.ModelSerializer):
+    problem = serializers.SerializerMethodField()
+    class Meta:
+        model = SavedProblem
+        fields = ['id','problem']
+    def get_problem(self, obj):
+        problem = obj.problem
+        data = {
+            'id': problem.id,
+            'title': problem.title,
+            'description': problem.description,
+            'depth': problem.depth,
+            'used_manipulator': problem.used_manipulator,
+            'solve_count': problem.solve_count, 
+            'try_count': problem.try_count,
+            'addedAt': problem.addedAt
+        }
+        return data

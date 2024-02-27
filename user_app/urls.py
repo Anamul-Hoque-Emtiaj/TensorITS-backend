@@ -6,7 +6,7 @@ from .views import (
     UserAddProblemView,GetCSRFtokenView,OneVOneListView,ChangePasswordView,
     UserDetailView, UserAchievementListView,UserProblemListView,EditProfileView,
     UserContestListView,UserSubmissionListView,UserQuantityModeListView,
-    UserTimeModeListView,UserCustomModeListView,AchievementListView
+    UserTimeModeListView,UserCustomModeListView,AchievementListView, UserSaveProblemsView
 )
 urlpatterns = [
     # Authentication
@@ -33,6 +33,9 @@ urlpatterns = [
 
     path('api/user/change-password/', ChangePasswordView.as_view(), name='user_change_password'),
     path('api/user/edit-profile/', EditProfileView.as_view(), name='user_edit_profile'),
+
+    # for online
+    path('api/user/<int:pk>/save-problems/',UserSaveProblemsView.as_view(), name='user_save'),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

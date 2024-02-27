@@ -8,7 +8,7 @@ from firebase_admin import  auth
 from django.contrib.auth import login, logout
 from django.contrib.auth.hashers import check_password
 from .models import  CustomUser, Achievement, UserAchievement
-from problem.models import Submission, UserProblem, Problem, TestCase
+from problem.models import Submission, UserProblem, Problem, TestCase,SavedProblem
 from contest.models import ContestUser, UserContest
 from quantity_mode.models import QuantityModeSubmission
 from time_mode.models import TimeModeSubmission
@@ -18,7 +18,7 @@ import json
 
 
 
-from .serializers import SignUpSerializer,LoginSerializer,UserSerializer, AchievementSerializer, UserAchievementSerializer, UserProblemSerializer,UserAddProblemSerializer,UserSubmissionListSerializer,EditProfileSerializer
+from .serializers import SignUpSerializer,LoginSerializer,UserSerializer, AchievementSerializer, UserAchievementSerializer, UserProblemSerializer,UserAddProblemSerializer,UserSubmissionListSerializer,EditProfileSerializer,UserSavedProblemSerializer
 from contest.serializers import ContestListSerializer
 
 # Create your views here.
@@ -366,3 +366,11 @@ class EditProfileView(APIView):
 
         user.save()
         return Response({'message': 'Profile updated successfully'}, status=status.HTTP_200_OK)
+    
+#For Online
+class UserSaveProblemsView(APIView):
+    serializer_class = UserSavedProblemSerializer
+    def get(self, request, pk):
+        user_problems = SavedProblem.objects.filter(user_id=pk)
+        serializer = UserSavedProblemSerializer(user_problems, many=True)
+        return Response(serializer.data)
