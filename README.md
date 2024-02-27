@@ -49,3 +49,9 @@ Make sure you have the following installed on your system:
     ```bash
     python manage.py runserver
     ```
+
+6. Database change
+    ```bash
+    python manage.py makemigrations
+    python manage.py migrate
+    ```
