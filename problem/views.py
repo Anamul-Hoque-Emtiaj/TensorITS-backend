@@ -4,7 +4,7 @@ from rest_framework import status,generics
 from utils.utils import xp_to_level
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
-from .models import Problem, Submission, Discussion, DiscussionVote
+from .models import Problem, Submission, Discussion, DiscussionVote,SavedProblem
 from .serializers import ProblemSetSerializer, ProblemDetailsSerializer, ProblemSubmitSerializer, ProblemSubmissionListSerializer, SubmissionSerializer, DiscussionSerializer, AddDiscussionSerializer, DiscussionVoteSerializer, ModeProblemSerializer, RunProblemSerializer
 from utils.code_runner import evaluate_code
 import json
@@ -341,3 +341,14 @@ class DownvoteDiscussionView(APIView):
                 serializer.save()
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+#for online
+class ProblemSaveView(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request,pk):
+        user = request.user
+        problem = Problem.objects.get(pk=pk)
+        if problem == None:
+            return Response({'detail': 'Problem not found.'}, status=status.HTTP_404_NOT_FOUND)
+        saved_problem = SavedProblem.objects.create(user=user,problem=problem)
+        return Response({'detail': 'Problem saved successfully.'}, status=status.HTTP_201_CREATED)
