@@ -350,5 +350,6 @@ class ProblemSaveView(APIView):
         problem = Problem.objects.get(pk=pk)
         if problem == None:
             return Response({'detail': 'Problem not found.'}, status=status.HTTP_404_NOT_FOUND)
+        print("problem saved")
         saved_problem = SavedProblem.objects.create(user=user,problem=problem)
         return Response({'detail': 'Problem saved successfully.'}, status=status.HTTP_201_CREATED)
