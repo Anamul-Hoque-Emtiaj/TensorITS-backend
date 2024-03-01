@@ -65,3 +65,7 @@ class SavedProblem(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     problem = models.ForeignKey(Problem, on_delete=models.CASCADE)
     timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # Define a unique constraint for user-problem pairs
+        unique_together = ['user', 'problem']
