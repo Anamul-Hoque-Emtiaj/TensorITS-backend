@@ -229,7 +229,7 @@ class AddDiscussionView(generics.CreateAPIView):
             comment=comment
         )
 
-        user.xp = user.xp + 2
+        user.xp = user.xp + 10
         user.level = xp_to_level(user.xp)
         user.save()
 
@@ -253,7 +253,7 @@ class ReplyDiscussionView(generics.CreateAPIView):
             parent_comment=parent_discussion
         )
 
-        user.xp = user.xp + 3
+        user.xp = user.xp + 5
         user.level = xp_to_level(user.xp)
         user.save()
 
@@ -308,6 +308,9 @@ class UpvoteDiscussionView(APIView):
         except DiscussionVote.DoesNotExist:
             # Case 1: User has not voted before, add a new upvote
             serializer = DiscussionVoteSerializer(data={'discussion': pk, 'user': request.user.id, 'vote': DiscussionVote.VOTE_UP})
+            user.xp = user.xp + 3
+            user.level = xp_to_level(user.xp)
+            user.save()
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -337,6 +340,9 @@ class DownvoteDiscussionView(APIView):
         except DiscussionVote.DoesNotExist:
             # Case 1: User has not voted before, add a new downvote
             serializer = DiscussionVoteSerializer(data={'discussion': pk, 'user': request.user.id, 'vote': DiscussionVote.VOTE_DOWN})
+            user.xp = user.xp + 3
+            user.level = xp_to_level(user.xp)
+            user.save()
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data, status=status.HTTP_201_CREATED)

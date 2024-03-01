@@ -14,6 +14,7 @@ import json
 from math import log2
 from utils.tensor_generator import tensor_generator
 from django.utils import timezone 
+from decimal import Decimal
 
 # Create your views here.
 def add_problems(oneVone,num_of_problem):
@@ -245,22 +246,24 @@ class ProblemSubmitView(APIView):
             submission_no=submission_no
         )
         accuracy = num_test_cases_passed/num_test_cases
-        user.xp = user.xp + float(problem.difficulty)*0.6 + accuracy*5.0
-        user.level = xp_to_level(user.xp)
-        user.save()
-        oneVoneSubmission = OneVOneSubmission.objects.create(submission=submission, oneVone_problem=oneVoneProblem)
+        oneVoneSubmission, created = OneVOneSubmission.objects.get_or_create(submission=submission, oneVone_problem=oneVoneProblem)
         time_diff = (timezone.now()-oneVones.started_at).total_seconds()
+        gain = float(problem.difficulty)*1000*(1/log2(time_diff)*1.00)
 
-        if accuracy == 1:
+        if created and accuracy == 1:
+            user.xp = user.xp + float(problem.difficulty)*0.6 + accuracy*5.0
+            user.level = xp_to_level(user.xp)
+            user.save()
+
             problem.solve_count += 1
             problem.try_count += 1
             problem.save()
             if oneVones.primary_user == user:
-                oneVones.primary_user_score += (problem.difficulty*100*(1/time_diff))
+                oneVones.primary_user_score += Decimal(gain)
                 message = oneVones.primary_user.username+" have solved "+" problem "+str(oneVoneProblem.problem_number)+" at "+timezone.now().astimezone(timezone.get_current_timezone()).strftime("%Y-%m-%d %H:%M:%S")
                 OneVOneNotification.objects.create(message=message, user=oneVones.secondary_user)
             else:
-                oneVones.secondary_user_score += (problem.difficulty*100*(1/time_diff))
+                oneVones.secondary_user_score += Decimal(gain)
                 message = oneVones.secondary_user.username+" have solved "+" problem "+str(oneVoneProblem.problem_number)+" at "+timezone.now().astimezone(timezone.get_current_timezone()).strftime("%Y-%m-%d %H:%M:%S")
                 OneVOneNotification.objects.create(message=message, user=oneVones.primary_user)
             oneVones.save()
@@ -284,6 +287,10 @@ class LeftView(APIView):
             else:
                 message = oneVones.primary_user.username+" have left at "+timezone.now().astimezone(timezone.get_current_timezone()).strftime("%Y-%m-%d %H:%M:%S")
                 OneVOneNotification.objects.create(message=message, user=oneVones.secondary_user)
+
+            request.user.xp = request.user.xp + oneVones.primary_user_score/100
+            request.user.level = xp_to_level(request.user.xp)
+            request.user.save()
         else:
             oneVones.secondary_user_status = OneVOne.LEFT
             if oneVones.primary_user_status == OneVOne.LEFT:
@@ -291,5 +298,9 @@ class LeftView(APIView):
             else:
                 message = oneVones.secondary_user.username+" have left at "+timezone.now().astimezone(timezone.get_current_timezone()).strftime("%Y-%m-%d %H:%M:%S")
                 OneVOneNotification.objects.create(message=message, user=oneVones.primary_user)
+
+            request.user.xp = request.user.xp + oneVones.secondary_user_score/100
+            request.user.level = xp_to_level(request.user.xp)
+            request.user.save()
         oneVones.save()
         return Response({'message':'You have left the oneVone'}, status=status.HTTP_200_OK) 
