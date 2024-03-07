@@ -91,7 +91,7 @@ class RunProblemView(APIView):
 
 # Problem Detail View:
 class ProblemDetailView(generics.RetrieveAPIView):
-    queryset = Problem.objects.filter(show_code=True)
+    queryset = Problem.objects.all()
     serializer_class = ProblemDetailsSerializer
 
     def retrieve(self, request, *args, **kwargs):
